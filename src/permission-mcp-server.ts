@@ -90,7 +90,11 @@ class PermissionMCPServer {
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (request.params.name === "permission_prompt") {
-        return await this.handlePermissionPrompt(request.params.arguments as PermissionRequest);
+        const args = request.params.arguments as unknown; // may be undefined/Record<string, unknown>
+        if (!args) {
+          throw new Error("Missing arguments for permission_prompt");
+        }
+        return await this.handlePermissionPrompt(args as PermissionRequest);
       }
       throw new Error(`Unknown tool: ${request.params.name}`);
     });
@@ -260,8 +264,8 @@ class PermissionMCPServer {
 // Export singleton instance for use by Slack handler
 export const permissionServer = new PermissionMCPServer();
 
-// Run if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// When compiled to CommonJS, detect direct execution using require.main.
+if (require.main === module) {
   permissionServer.run().catch((error) => {
     logger.error('Permission MCP server error:', error);
     process.exit(1);

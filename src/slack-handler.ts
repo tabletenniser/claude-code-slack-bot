@@ -50,6 +50,16 @@ export class SlackHandler {
   }
 
   async handleMessage(event: MessageEvent, say: any) {
+    // Debug: log the raw Slack event (essential info only)
+    this.logger.debug('Incoming Slack event', {
+      user: event.user,
+      channel: event.channel,
+      thread_ts: event.thread_ts,
+      ts: event.ts,
+      text: event.text ? event.text.substring(0, 100) : undefined,
+      files: event.files ? event.files.length : 0,
+    });
+
     const { user, channel, thread_ts, ts, text, files } = event;
     
     // Process any attached files
