@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -45,7 +44,7 @@ export class FileHandler {
     try {
       this.logger.debug('Downloading file', { name: file.name, mimetype: file.mimetype });
 
-      const response = await fetch(file.url_private_download, {
+      const response = await (globalThis as any).fetch(file.url_private_download, {
         headers: {
           'Authorization': `Bearer ${config.slack.botToken}`,
         },

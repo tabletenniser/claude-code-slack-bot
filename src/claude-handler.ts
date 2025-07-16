@@ -1,4 +1,4 @@
-import { query, type SDKMessage } from '@anthropic-ai/claude-code';
+import type { SDKMessage } from '@anthropic-ai/claude-code';
 import path from 'node:path';
 import { ConversationSession } from './types';
 import { Logger } from './logger';
@@ -110,7 +110,16 @@ export class ClaudeHandler {
     this.logger.debug('Claude query options', options);
 
     try {
-      for await (const message of query({
+      // Dynamically import the Claude Code SDK at runtime. This avoids
+      // attempting to `require()` an ES module which would otherwise throw
+      // `ERR_REQUIRE_ESM` when the compiled JavaScript is executed in
+      // CommonJS mode.
+      // The import is done lazily so the module is only loaded when this
+      // method is actually used.
+      // @ts-ignore - runtime dynamic import, types are resolved at build time
+      const { query: claudeQuery } = await import('@anthropic-ai/claude-code');
+
+      for await (const message of claudeQuery({
         prompt,
         abortController: abortController || new AbortController(),
         options,
