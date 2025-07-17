@@ -579,6 +579,23 @@ export class SlackHandler {
   }
 
   private async updateMessageReaction(sessionKey: string, emoji: string): Promise<void> {
+    // Slack API expects the emoji "name" (alias) without surrounding colons, *not* the raw
+    // Unicode character. Supply a mapping so callers can continue to pass the
+    // familiar glyph while the API receives a valid alias. If an alias is
+    // already supplied we simply use it as-is.
+
+    const emojiAlias: Record<string, string> = {
+      '🤔': 'thinking_face',
+      '✅': 'white_check_mark',
+      '🔄': 'arrows_counterclockwise',
+      '📋': 'clipboard',
+      '⚙️': 'gear',
+      '❌': 'x',
+      '⏹️': 'stop_button'
+    };
+
+    const reactionName = emojiAlias[emoji] ?? emoji; // fall back to provided string
+
     const originalMessage = this.originalMessages.get(sessionKey);
     if (!originalMessage) {
       return;
@@ -586,7 +603,7 @@ export class SlackHandler {
 
     // Check if we're already showing this emoji
     const currentEmoji = this.currentReactions.get(sessionKey);
-    if (currentEmoji === emoji) {
+    if (currentEmoji === reactionName) {
       this.logger.debug('Reaction already set, skipping', { sessionKey, emoji });
       return;
     }
@@ -614,15 +631,15 @@ export class SlackHandler {
       await this.app.client.reactions.add({
         channel: originalMessage.channel,
         timestamp: originalMessage.ts,
-        name: emoji,
+        name: reactionName,
       });
 
       // Track the current reaction
-      this.currentReactions.set(sessionKey, emoji);
+      this.currentReactions.set(sessionKey, reactionName);
 
       this.logger.debug('Updated message reaction', { 
         sessionKey, 
-        emoji, 
+        emoji: reactionName, 
         previousEmoji: currentEmoji,
         channel: originalMessage.channel, 
         ts: originalMessage.ts 
