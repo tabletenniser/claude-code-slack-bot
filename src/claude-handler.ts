@@ -60,12 +60,16 @@ export class ClaudeHandler {
     
     // Add permission prompt server if we have Slack context
     if (slackContext) {
-      const permissionServerPath = path.resolve(__dirname, 'permission-mcp-server.ts');
+      // Use the compiled JS file that lives in the same `dist` directory as this
+      // handler instead of the original TypeScript source which is not present
+      // at runtime. This avoids "file not found" errors when starting the
+      // permission-prompt MCP server.
+      const permissionServerPath = path.resolve(__dirname, 'permission-mcp-server.js');
 
       const permissionServer = {
         'permission-prompt': {
-          command: 'npx',
-          args: ['tsx', permissionServerPath],
+          command: 'node',
+          args: [permissionServerPath],
           env: {
             SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN ?? '',
             SLACK_CONTEXT: JSON.stringify(slackContext)
@@ -110,14 +114,11 @@ export class ClaudeHandler {
     this.logger.debug('Claude query options', options);
 
     try {
-      // Dynamically import the Claude Code SDK at runtime. This avoids
-      // attempting to `require()` an ES module which would otherwise throw
-      // `ERR_REQUIRE_ESM` when the compiled JavaScript is executed in
-      // CommonJS mode.
-      // The import is done lazily so the module is only loaded when this
-      // method is actually used.
-      // @ts-ignore - runtime dynamic import, types are resolved at build time
-      const { query: claudeQuery } = await import('@anthropic-ai/claude-code');
+      // Use eval to perform dynamic import without TypeScript transforming it
+      // into a CommonJS require which would break with ESM-only modules.
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore – eval used intentionally to keep dynamic import at runtime
+      const { query: claudeQuery } = await eval('import("@anthropic-ai/claude-code")');
 
       for await (const message of claudeQuery({
         prompt,
