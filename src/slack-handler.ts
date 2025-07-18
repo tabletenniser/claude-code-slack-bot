@@ -741,7 +741,7 @@ export class SlackHandler {
 
   setupEventHandlers() {
     // Handle direct messages
-    this.app.message(async ({ message, say }) => {
+    this.app.message(async ({ message, say }: { message: any; say: any }) => {
       if (message.subtype === undefined && 'user' in message) {
         this.logger.info('Handling direct message event');
         await this.handleMessage(message as MessageEvent, say);
@@ -749,7 +749,7 @@ export class SlackHandler {
     });
 
     // Handle app mentions
-    this.app.event('app_mention', async ({ event, say }) => {
+    this.app.event('app_mention', async ({ event, say }: { event: any; say: any }) => {
       this.logger.info('Handling app mention event');
       const text = event.text.replace(/<@[^>]+>/g, '').trim();
       await this.handleMessage({
@@ -759,7 +759,7 @@ export class SlackHandler {
     });
 
     // Handle file uploads in threads
-    this.app.event('message', async ({ event, say }) => {
+    this.app.event('message', async ({ event, say }: { event: any; say: any }) => {
       // Only handle file uploads that are not from bots and have files
       if (event.subtype === 'file_share' && 'user' in event && event.files) {
         this.logger.info('Handling file upload event');
@@ -768,7 +768,7 @@ export class SlackHandler {
     });
 
     // Handle bot being added to channels
-    this.app.event('member_joined_channel', async ({ event, say }) => {
+    this.app.event('member_joined_channel', async ({ event, say }: { event: any; say: any }) => {
       // Check if the bot was added to the channel
       if (event.user === await this.getBotUserId()) {
         this.logger.info('Bot added to channel', { channel: event.channel });
@@ -777,7 +777,7 @@ export class SlackHandler {
     });
 
     // Handle permission approval button clicks
-    this.app.action('approve_tool', async ({ ack, body, respond }) => {
+    this.app.action('approve_tool', async ({ ack, body, respond }: { ack: any; body: any; respond: any }) => {
       await ack();
       const approvalId = (body as any).actions[0].value;
       this.logger.info('Tool approval granted', { approvalId });
@@ -791,7 +791,7 @@ export class SlackHandler {
     });
 
     // Handle permission denial button clicks
-    this.app.action('deny_tool', async ({ ack, body, respond }) => {
+    this.app.action('deny_tool', async ({ ack, body, respond }: { ack: any; body: any; respond: any }) => {
       await ack();
       const approvalId = (body as any).actions[0].value;
       this.logger.info('Tool approval denied', { approvalId });
