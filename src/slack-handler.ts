@@ -743,14 +743,25 @@ export class SlackHandler {
     // Handle direct messages
     this.app.message(async ({ message, say }: { message: any; say: any }) => {
       if (message.subtype === undefined && 'user' in message) {
-        this.logger.info('Handling direct message event');
+        // Determine if this is a DM or a channel message (non-mention)
+        const channelId: string = message.channel;
+        const isDM = channelId.startsWith('D');
+        this.logger.info('Handling message event', {
+          type: isDM ? 'direct_message' : 'channel_message',
+          channel: channelId,
+          user: message.user,
+        });
         await this.handleMessage(message as MessageEvent, say);
       }
     });
 
     // Handle app mentions
     this.app.event('app_mention', async ({ event, say }: { event: any; say: any }) => {
-      this.logger.info('Handling app mention event');
+      this.logger.info('Handling app mention event', {
+        type: 'channel_mention',
+        channel: event.channel,
+        user: event.user,
+      });
       const text = event.text.replace(/<@[^>]+>/g, '').trim();
       await this.handleMessage({
         ...event,
