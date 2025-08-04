@@ -167,27 +167,51 @@ export class SlackHandler {
 
     // Working directory is always required
     if (!workingDirectory) {
+      const ALWAYS_REPLY_CHANNEL_IDS = ['C095WMYSBCM'];
+      const isAlwaysReplyChannel = ALWAYS_REPLY_CHANNEL_IDS.includes(channel);
+      
       let errorMessage = `⚠️ No working directory set. `;
       
       if (!isDM && !this.workingDirManager.hasChannelWorkingDirectory(channel)) {
         // No channel default set
         errorMessage += `Please set a default working directory for this channel first using:\n`;
         if (config.baseDirectory) {
-          errorMessage += `\`cwd project-name\` or \`cwd /absolute/path\`\n\n`;
+          if (isAlwaysReplyChannel) {
+            errorMessage += `\`cwd project-name\` or \`cwd /absolute/path\`\n\n`;
+          } else {
+            errorMessage += `\`@claudebot cwd project-name\` or \`@claudebot cwd /absolute/path\`\n\n`;
+          }
           errorMessage += `Base directory: \`${config.baseDirectory}\``;
         } else {
-          errorMessage += `\`cwd /path/to/directory\``;
+          if (isAlwaysReplyChannel) {
+            errorMessage += `\`cwd /path/to/directory\``;
+          } else {
+            errorMessage += `\`@claudebot cwd /path/to/directory\``;
+          }
         }
       } else if (thread_ts) {
         // In thread but no thread-specific directory
         errorMessage += `You can set a thread-specific working directory using:\n`;
         if (config.baseDirectory) {
-          errorMessage += `\`@claudebot cwd project-name\` or \`@claudebot cwd /absolute/path\``;
+          if (isDM || isAlwaysReplyChannel) {
+            errorMessage += `\`cwd project-name\` or \`cwd /absolute/path\``;
+          } else {
+            errorMessage += `\`@claudebot cwd project-name\` or \`@claudebot cwd /absolute/path\``;
+          }
+        } else {
+          if (isDM || isAlwaysReplyChannel) {
+            errorMessage += `\`cwd /path/to/directory\``;
+          } else {
+            errorMessage += `\`@claudebot cwd /path/to/directory\``;
+          }
+        }
+      } else {
+        errorMessage += `Please set one first using:\n`;
+        if (isDM || isAlwaysReplyChannel) {
+          errorMessage += `\`cwd /path/to/directory\``;
         } else {
           errorMessage += `\`@claudebot cwd /path/to/directory\``;
         }
-      } else {
-        errorMessage += `Please set one first using:\n\`cwd /path/to/directory\``;
       }
       
       await say({
@@ -699,28 +723,51 @@ export class SlackHandler {
       });
 
       const channelName = (channelInfo.channel as any)?.name || 'this channel';
+      const ALWAYS_REPLY_CHANNEL_IDS = ['C095WMYSBCM'];
+      const isAlwaysReplyChannel = ALWAYS_REPLY_CHANNEL_IDS.includes(channelId);
       
       let welcomeMessage = `👋 Hi! I'm Claude Code, your AI coding assistant.\n\n`;
+      
+      if (isAlwaysReplyChannel) {
+        welcomeMessage += `**Always-Reply Channel**: I'll respond to all messages in this channel (no tagging needed).\n\n`;
+      } else {
+        welcomeMessage += `**Important**: I only respond when you mention me with @claudebot in your message.\n\n`;
+      }
+      
       welcomeMessage += `To get started, I need to know the default working directory for #${channelName}.\n\n`;
       
       if (config.baseDirectory) {
         welcomeMessage += `You can use:\n`;
-        welcomeMessage += `• \`cwd project-name\` (relative to base directory: \`${config.baseDirectory}\`)\n`;
-        welcomeMessage += `• \`cwd /absolute/path/to/project\` (absolute path)\n\n`;
+        if (isAlwaysReplyChannel) {
+          welcomeMessage += `• \`cwd project-name\` (relative to base directory: \`${config.baseDirectory}\`)\n`;
+          welcomeMessage += `• \`cwd /absolute/path/to/project\` (absolute path)\n\n`;
+        } else {
+          welcomeMessage += `• \`@claudebot cwd project-name\` (relative to base directory: \`${config.baseDirectory}\`)\n`;
+          welcomeMessage += `• \`@claudebot cwd /absolute/path/to/project\` (absolute path)\n\n`;
+        }
       } else {
         welcomeMessage += `Please set it using:\n`;
-        welcomeMessage += `• \`cwd /path/to/project\` or \`set directory /path/to/project\`\n\n`;
+        if (isAlwaysReplyChannel) {
+          welcomeMessage += `• \`cwd /path/to/project\`\n\n`;
+        } else {
+          welcomeMessage += `• \`@claudebot cwd /path/to/project\`\n\n`;
+        }
       }
       
       welcomeMessage += `This will be the default working directory for this channel. `;
-      welcomeMessage += `You can always override it for specific threads by mentioning me with a different \`cwd\` command.\n\n`;
-      welcomeMessage += `Once set, you can ask me to help with code reviews, file analysis, debugging, and more!`;
+      if (isAlwaysReplyChannel) {
+        welcomeMessage += `You can always override it for specific threads with a different \`cwd\` command.\n\n`;
+        welcomeMessage += `Once set, you can ask me to help with code reviews, file analysis, debugging, and more!`;
+      } else {
+        welcomeMessage += `You can always override it for specific threads by mentioning me with a different \`cwd\` command.\n\n`;
+        welcomeMessage += `Once set, you can ask me to help with code reviews, file analysis, debugging, and more! Just remember to tag me in your messages.`;
+      }
 
       await say({
         text: welcomeMessage,
       });
 
-      this.logger.info('Sent welcome message to channel', { channelId, channelName });
+      this.logger.info('Sent welcome message to channel', { channelId, channelName, isAlwaysReplyChannel });
     } catch (error) {
       this.logger.error('Failed to handle channel join', error);
     }
@@ -740,41 +787,84 @@ export class SlackHandler {
   }
 
   setupEventHandlers() {
-    // Handle direct messages
+    // Channels that should respond to all messages (no tagging required)
+    const ALWAYS_REPLY_CHANNEL_IDS = ['C095WMYSBCM']; // https://duolingo.slack.com/archives/C095WMYSBCM
+
+    // Handle direct messages and messages in always-reply channels
     this.app.message(async ({ message, say }: { message: any; say: any }) => {
       if (message.subtype === undefined && 'user' in message) {
-        // Determine if this is a DM or a channel message (non-mention)
         const channelId: string = message.channel;
         const isDM = channelId.startsWith('D');
-        this.logger.info('Handling message event', {
-          type: isDM ? 'direct_message' : 'channel_message',
-          channel: channelId,
-          user: message.user,
-        });
-        await this.handleMessage(message as MessageEvent, say);
+        const isAlwaysReplyChannel = ALWAYS_REPLY_CHANNEL_IDS.includes(channelId);
+        
+        // Only handle if it's a DM or an always-reply channel
+        if (isDM || isAlwaysReplyChannel) {
+          this.logger.info('Handling message event', {
+            type: isDM ? 'direct_message' : 'always_reply_channel_message',
+            channel: channelId,
+            user: message.user,
+            isAlwaysReplyChannel,
+          });
+          await this.handleMessage(message as MessageEvent, say);
+        }
       }
     });
 
-    // Handle app mentions
+    // Handle app mentions in other channels (when bot is explicitly tagged)
     this.app.event('app_mention', async ({ event, say }: { event: any; say: any }) => {
-      this.logger.info('Handling app mention event', {
-        type: 'channel_mention',
-        channel: event.channel,
-        user: event.user,
-      });
-      const text = event.text.replace(/<@[^>]+>/g, '').trim();
-      await this.handleMessage({
-        ...event,
-        text,
-      } as MessageEvent, say);
+      const channelId = event.channel;
+      const isDM = channelId.startsWith('D');
+      const isAlwaysReplyChannel = ALWAYS_REPLY_CHANNEL_IDS.includes(channelId);
+      
+      // Only handle mentions in regular channels (not DM or always-reply channel, as those are handled above)
+      if (!isDM && !isAlwaysReplyChannel) {
+        this.logger.info('Handling app mention event', {
+          type: 'channel_mention',
+          channel: event.channel,
+          user: event.user,
+        });
+        const text = event.text.replace(/<@[^>]+>/g, '').trim();
+        await this.handleMessage({
+          ...event,
+          text,
+        } as MessageEvent, say);
+      }
     });
 
-    // Handle file uploads in threads
+    // Handle file uploads based on channel rules
     this.app.event('message', async ({ event, say }: { event: any; say: any }) => {
-      // Only handle file uploads that are not from bots and have files
       if (event.subtype === 'file_share' && 'user' in event && event.files) {
-        this.logger.info('Handling file upload event');
-        await this.handleMessage(event as MessageEvent, say);
+        const channelId = event.channel;
+        const isDM = channelId.startsWith('D');
+        const isAlwaysReplyChannel = ALWAYS_REPLY_CHANNEL_IDS.includes(channelId);
+        
+        let shouldHandle = false;
+        let text = event.text || '';
+        
+        if (isDM || isAlwaysReplyChannel) {
+          // In DM or always-reply channel, handle all file uploads
+          shouldHandle = true;
+        } else {
+          // In regular channels, only handle if bot is mentioned
+          const botUserId = await this.getBotUserId();
+          if (event.text && event.text.includes(`<@${botUserId}>`)) {
+            shouldHandle = true;
+            text = event.text.replace(/<@[^>]+>/g, '').trim();
+          }
+        }
+        
+        if (shouldHandle) {
+          this.logger.info('Handling file upload event', {
+            channel: channelId,
+            isDM,
+            isAlwaysReplyChannel,
+            mentioned: !isDM && !isAlwaysReplyChannel
+          });
+          await this.handleMessage({
+            ...event,
+            text,
+          } as MessageEvent, say);
+        }
       }
     });
 

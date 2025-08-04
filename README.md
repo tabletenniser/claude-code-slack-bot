@@ -4,7 +4,7 @@ A Slack bot that integrates with Claude Code SDK to provide AI-powered coding as
 
 ## Features
 
-- 🤖 Direct message support - chat with the bot privately
+- 🤖 Smart interaction modes - responds in DMs, specific channels, or when tagged
 - 💬 Thread support - maintains conversation context within threads
 - 🔄 Streaming responses - see Claude's responses as they're generated
 - 📝 Markdown formatting - code blocks and formatting are preserved
@@ -98,34 +98,37 @@ Before using Claude Code, you must set a working directory. This tells Claude wh
 
 #### Set working directory:
 
-**Relative paths** (if BASE_DIRECTORY is configured):
+**In Direct Messages or Always-Reply Channels** (no tagging needed):
 ```
-cwd project-name
+cwd project-name              # relative path
+cwd /path/to/your/project     # absolute path
 ```
 
-**Absolute paths**:
+**In Other Channels** (tagging required):
 ```
-cwd /path/to/your/project
-```
-or
-```
-set directory /path/to/your/project
+@ClaudeBot cwd project-name              # relative path
+@ClaudeBot cwd /path/to/your/project     # absolute path
 ```
 
 #### Check current working directory:
+
+**In Direct Messages or Always-Reply Channels**:
 ```
 cwd
-```
-or
-```
 get directory
+```
+
+**In Other Channels**:
+```
+@ClaudeBot cwd
+@ClaudeBot get directory
 ```
 
 ### Working Directory Scope
 
 - **Direct Messages**: Working directory is set for the entire conversation
 - **Channels**: Working directory is set for the entire channel (prompted when bot joins)
-- **Threads**: Can override the channel/DM directory for a specific thread by mentioning the bot
+- **Threads**: Can override the channel/DM directory for a specific thread
 
 ### Base Directory Configuration
 
@@ -135,36 +138,64 @@ You can configure a base directory in your `.env` file to use relative paths:
 BASE_DIRECTORY=/Users/username/Code/
 ```
 
-With this set, you can use:
+**Examples with base directory configured:**
+
+*In Direct Messages or Always-Reply Channels:*
 - `cwd herd-website` → resolves to `/Users/username/Code/herd-website`
 - `cwd /absolute/path` → uses absolute path directly
 
-### Direct Messages
-Simply send a direct message to the bot with your request:
+*In Other Channels:*
+- `@ClaudeBot cwd herd-website` → resolves to `/Users/username/Code/herd-website`
+- `@ClaudeBot cwd /absolute/path` → uses absolute path directly
+
+### How to Interact with the Bot
+
+The bot has different interaction modes depending on where you message it:
+
+#### 📱 Direct Messages (DMs)
+- **No tagging required** - responds to all messages
 ```
-@ClaudeBot Can you help me write a Python function to calculate fibonacci numbers?
+Can you help me write a Python function to calculate fibonacci numbers?
+```
+
+#### 🎯 Always-Reply Channels
+- **Channel**: https://duolingo.slack.com/archives/C095WMYSBCM
+- **No tagging required** - responds to all messages in these channels
+```
+Please review this code and suggest improvements
+```
+
+#### 💬 All Other Channels
+- **Tagging required** - only responds when mentioned with `@ClaudeBot`
+```
+@ClaudeBot Please review this code and suggest improvements
 ```
 
 ### In Channels
 When you first add the bot to a channel, it will ask for a default working directory for that channel.
 
-Mention the bot in any channel where it's been added:
-```
-@ClaudeBot Please review this code and suggest improvements
-```
-
 ### Thread-Specific Working Directories
 You can override the channel's default working directory for a specific thread:
+
+**In Direct Messages or Always-Reply Channels:**
+```
+cwd different-project
+Now help me with this specific project
+```
+
+**In Other Channels:**
 ```
 @ClaudeBot cwd different-project
 @ClaudeBot Now help me with this specific project
 ```
 
 ### Threads
-Reply in a thread to maintain conversation context. The bot will remember previous messages in the thread.
+Reply in a thread to maintain conversation context:
+- **Direct Messages & Always-Reply Channels**: Bot remembers all previous messages in the thread
+- **Other Channels**: Must tag the bot to get responses, but it remembers the thread context
 
 ### File Uploads
-You can upload files and images directly to any conversation:
+Upload files and images with your messages:
 
 #### Supported File Types:
 - **Images**: JPG, PNG, GIF, WebP, SVG
@@ -173,8 +204,15 @@ You can upload files and images directly to any conversation:
 - **Code Files**: Most programming languages
 
 #### Usage:
+
+**In Direct Messages or Always-Reply Channels:**
 1. Upload a file by dragging and dropping or using the attachment button
-2. Add optional text to describe what you want Claude to do with the file
+2. Add text to describe what you want Claude to do with the file
+3. Claude will analyze the file content and provide assistance
+
+**In Other Channels:**
+1. Upload a file by dragging and dropping or using the attachment button
+2. **Tag the bot** with `@ClaudeBot` and add text to describe what you want Claude to do with the file
 3. Claude will analyze the file content and provide assistance
 
 **Note**: Files are temporarily downloaded for processing and automatically cleaned up after analysis.
@@ -211,8 +249,13 @@ The bot supports MCP servers to extend Claude's capabilities with additional too
 
 #### MCP Commands
 
+**In Direct Messages or Always-Reply Channels:**
 - **View configured servers**: `mcp` or `servers`
 - **Reload configuration**: `mcp reload`
+
+**In Other Channels:**
+- **View configured servers**: `@ClaudeBot mcp` or `@ClaudeBot servers`
+- **Reload configuration**: `@ClaudeBot mcp reload`
 
 #### Available MCP Servers
 
@@ -275,10 +318,14 @@ src/
 ## Troubleshooting
 
 ### Bot not responding
-1. Check that the bot is running (`npm run dev`)
-2. Verify all environment variables are set correctly
-3. Ensure the bot has been invited to the channel
-4. Check Slack app permissions are configured correctly
+1. **Check interaction requirements:**
+   - **Direct Messages**: No tagging needed
+   - **Always-Reply Channels** (C095WMYSBCM): No tagging needed  
+   - **Other Channels**: Must tag with `@ClaudeBot`
+2. Check that the bot is running (`npm run dev`)
+3. Verify all environment variables are set correctly
+4. Ensure the bot has been invited to the channel
+5. Check Slack app permissions are configured correctly
 
 ### Authentication errors
 1. Verify your Anthropic API key is valid
